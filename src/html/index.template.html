@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f3f3f0">
+<title>LFCFoundry Mind Mapper</title>
+<style>/*__APP_CSS__*/</style>
+</head>
+<body>
+<main id="app">
+<header><div><p class="eyebrow">LFCFoundry</p><h1>Mind Mapper</h1></div><span class="session-note">Session only · changes are not saved</span></header>
+<nav class="toolbar" aria-label="Map tools">
+<label>Layout <select id="layout"><option value="left-to-right">Left to right</option><option value="right-to-left">Right to left</option><option value="top-to-bottom">Top to bottom</option><option value="bottom-to-top">Bottom to top</option><option value="radial">Radial</option></select></label>
+<button id="add">Add child</button><button id="edit">Edit label</button><button id="delete">Delete branch</button>
+<button id="undo">Undo</button><button id="redo">Redo</button>
+<button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-label" aria-label="Zoom level">100%</output><button id="zoom-in" aria-label="Zoom in">+</button><button id="fit">Fit map</button><button id="reset">Reset view</button>
+</nav>
+<div class="workspace">
+<section id="stage" aria-label="Visual map">
+<canvas id="map" tabindex="0" role="img" aria-label="Interactive mind map. Use the outline for node content." aria-describedby="instructions"></canvas>
+<form id="editor" hidden aria-label="Edit node label"><label for="label-input">Editing node label</label><textarea id="label-input" rows="3" maxlength="20000" aria-describedby="edit-error"></textarea><div><button type="submit">Save</button><button id="cancel" type="button">Cancel</button></div><span id="edit-error" role="alert"></span></form>
+</section>
+<aside><details open><summary>Map outline</summary><p class="outline-help">The root owns the hierarchy. Select a topic, then edit or add a child.</p><div id="outline" role="tree" aria-label="Map hierarchy"></div><div class="paging"><button id="previous">Previous</button><span id="page-label"></span><button id="next">Next</button></div></details></aside>
+</div>
+<footer><p id="app-status" role="status" aria-live="polite">Ready</p><p id="instructions">Tap to select · drag to pan · pinch or wheel to zoom · Enter to edit · Insert to add · arrows to navigate · Escape to cancel</p></footer>
+</main>
+<script>/*__APP_JS__*/</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "@lfcfoundry/mind-mapper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline-first, single-file mind-mapping application",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "npm test && npm run build"
+  }
+}
