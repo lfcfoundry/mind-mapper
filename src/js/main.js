@@ -96,7 +96,7 @@ $('editor').onsubmit = (event) => {
 $('cancel').onclick = cancelEdit;
 $('label-input').onkeydown = (event) => {
   if (event.key === 'Escape') { event.preventDefault(); cancelEdit(); }
-  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); $('editor').requestSubmit(); }
+  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); $('editor').requestSubmit(); }
 };
 $('add').onclick = () => { if (action('addChild')?.ok) beginEdit(); };
 $('edit').onclick = beginEdit;
