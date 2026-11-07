@@ -19,8 +19,8 @@ export function outlinePage(ordered, selectedId, page, pageSize, followSelection
   const requested = followSelection && index >= 0 ? Math.floor(index / pageSize) : page;
   return Math.max(0, Math.min(requested, Math.ceil(ordered.length / pageSize) - 1));
 }
-export function createEditor(document, measure, idFactory) {
-  const history = createCommandHistory(document, { idFactory });
+export function createEditor(document, measure, idFactory, historyOptions = {}) {
+  const history = createCommandHistory(document, { idFactory, ...historyOptions });
   let current = history.getDocument(), selectedId = current.document.rootId, editing = null, mode = 'left-to-right';
   let layout, generation = 0;
   const measurements = new Map();

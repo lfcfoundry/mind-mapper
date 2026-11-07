@@ -120,8 +120,9 @@ function firstValidationFailure(candidate) {
   return failure(first.code, first.message, { ...details, validationErrors: validation.errors });
 }
 
+let trustCandidates = false; // set only for the duration of one synchronous history command
 function succeed(candidate, undoAction, redoAction, changed = true) {
-  const invalid = firstValidationFailure(candidate);
+  const invalid = trustCandidates ? null : firstValidationFailure(candidate);
   if (invalid) return invalid;
   return { ok: true, document: candidate, changed, undoAction, redoAction };
 }
@@ -497,9 +498,13 @@ export function applyCommand(document, command, options = {}) {
 // History uses the prepared inverse/forward actions but keeps those details out of the public result.
 // The history owns `document` and validated it when it was created or last changed, so it is not re-validated per edit.
 export function executeCommandForHistory(document, command, options = {}) {
-  return executePublicCommand(document, command, options, true);
+  trustCandidates = options.trustCandidate === true;
+  try { return executePublicCommand(document, command, options, true); } finally { trustCandidates = false; }
 }
 
+let trustHistoryActions = false;
+export function setTrustHistoryActions(value) { trustHistoryActions = value === true; }
 export function applyHistoryAction(document, action) {
-  return applyInternalAction(document, action, true);
+  trustCandidates = trustHistoryActions;
+  try { return applyInternalAction(document, action, true); } finally { trustCandidates = false; }
 }

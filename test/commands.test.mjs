@@ -406,3 +406,13 @@ test("invalid undo and redo requests return structured failures", () => {
   assert.equal(history.undo().error.code, "NOTHING_TO_UNDO");
   assert.equal(history.redo().error.code, "NOTHING_TO_REDO");
 });
+
+test('trustCandidate history gives the same documents as the default checked history', async () => {
+  const { createDocument } = await import('../src/js/model/create.js');
+  const { createCommandHistory } = await import('../src/js/commands/history.js');
+  const make = (trust) => { let n = 0; return createCommandHistory(createDocument({ id: 'd', rootId: 'root', rootLabel: 'R' }), { idFactory: () => 'n' + (++n), trustCandidate: trust }); };
+  const a = make(false), b = make(true);
+  const steps = [(h) => h.execute({ type: 'node.addChild', parentId: 'root', label: 'A' }), (h) => h.execute({ type: 'node.addChild', parentId: 'n1', label: 'B' }),
+    (h) => h.execute({ type: 'node.rename', nodeId: 'n1', label: 'AA' }), (h) => h.undo(), (h) => h.undo(), (h) => h.redo(), (h) => h.execute({ type: 'node.deleteSubtree', nodeId: 'n1' })];
+  for (const step of steps) { assert.deepEqual(step(b), step(a)); assert.deepEqual(b.getDocument(), a.getDocument()); }
+});
