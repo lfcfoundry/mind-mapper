@@ -2,6 +2,7 @@ import { createDocument } from './model/create.js';
 import { createEditor, hierarchy, outlinePage } from './browser/controller.js';
 import { FONT } from './browser/measurement.js';
 import { fileNameFor, loadFromText, toFileText, readAutosave, writeAutosave, MAX_FILE_BYTES } from './browser/files.js';
+import { createDiagnostics } from './browser/diagnostics.js';
 import { renderMap } from './browser/renderer.js';
 import { worldToViewport, screenToViewport, zoomAt, pan, fitView, resetView, canvasSize, hitTest } from './browser/viewport.js';
 
@@ -10,6 +11,10 @@ const canvas = $('map'), stage = $('stage'), context = canvas.getContext('2d');
 if (!context) throw new Error('Canvas 2D is required.');
 const measureContext = document.createElement('canvas').getContext('2d');
 measureContext.font = FONT;
+const diag = createDiagnostics();
+window.addEventListener('error', (e) => diag.logError('error', e.message, e.error?.stack ?? `${e.filename}:${e.lineno}`));
+window.addEventListener('unhandledrejection', (e) => diag.logError('promise', e.reason?.message ?? e.reason, e.reason?.stack ?? ''));
+try { new PerformanceObserver((list) => list.getEntries().forEach((x) => diag.addLongTask(x.duration))).observe({ type: 'longtask', buffered: true }); } catch { /* not supported here */ }
 const blank = () => createDocument({ id: 'session-map', rootId: 'root', rootLabel: 'My mind map' });
 let sequence = 0, usedIds = new Set(), editor, dirty = false, saveTimer = null;
 function nextId() { let id; do id = `node-${++sequence}`; while (usedIds.has(id)); usedIds.add(id); return id; }
@@ -23,6 +28,15 @@ let view = resetView(1, 1), size, frame = null, page = 0;
 const pageSize = 80;
 function announce(message) { $('app-status').textContent = message; }
 const { createObjectURL: makeBlobHref, revokeObjectURL: dropBlobHref } = URL; // aliased so no css-style call text appears in the build
+function download(name, text, type = 'text/plain') {
+  const href = makeBlobHref(new Blob([text], { type }));
+  const link = Object.assign(document.createElement('a'), { href, download: name }); document.body.append(link); link.click(); link.remove();
+  setTimeout(() => dropBlobHref(href), 4000);
+}
+const diagContext = () => ({ Browser: navigator.userAgent, 'Screen pixel ratio': devicePixelRatio, 'Map size': `${editor.document.document.nodes.length} topics`, Layout: editor.mode });
+const stamp = () => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+$('speed-report').onclick = () => { download(`mind-mapper-speed-${stamp()}.txt`, diag.speedReport(diagContext())); announce('Speed report downloaded.'); };
+$('error-log').onclick = () => { download(`mind-mapper-errors-${stamp()}.txt`, diag.errorLog(diagContext())); announce(`Error log downloaded (${diag.errorCount} errors).`); };
 function markChanged() {
   dirty = true; $('save-note').textContent = 'Unsaved file changes · autosaved in this browser';
   clearTimeout(saveTimer); saveTimer = setTimeout(() => writeAutosave(localStorage, editor.document), 400);
@@ -45,9 +59,7 @@ $('file').onchange = async () => {
 };
 $('save').onclick = () => {
   const out = toFileText(editor.document); if (!out.ok) { announce(out.message); return; }
-  const name = fileNameFor(editor.document.document.title), blobHref = makeBlobHref(new Blob([out.text], { type: 'application/json' }));
-  const link = Object.assign(document.createElement('a'), { href: blobHref, download: name }); document.body.append(link); link.click(); link.remove();
-  setTimeout(() => dropBlobHref(blobHref), 4000); dirty = false; $('save-note').textContent = 'Saved as ' + name; announce(`Saved ${name}.`);
+  const name = fileNameFor(editor.document.document.title); download(name, out.text, 'application/json'); dirty = false; $('save-note').textContent = 'Saved as ' + name; announce(`Saved ${name}.`);
 };
 function positionEditor() {
   if (!editor.editing) return;
@@ -61,7 +73,7 @@ function positionEditor() {
   $('editor').style.top = `${Math.max(8, Math.min(size.height - height - 8, point.y))}px`;
 }
 function draw() {
-  frame = null; renderMap(context, editor, view, size); positionEditor();
+  frame = null; diag.time('draw', () => renderMap(context, editor, view, size)); positionEditor(); diag.markFirstDraw();
   $('zoom-label').textContent = `${Math.round(view.scale * 100)}%`;
 }
 function invalidate() { if (frame === null) frame = requestAnimationFrame(draw); }
@@ -117,13 +129,13 @@ function beginEdit() {
 }
 function action(method) {
   if (editor.editing) { announce('Save or cancel the current label edit first.'); return; }
-  const result = editor[method]();
+  const result = diag.time(`edit ${method}`, () => editor[method]());
   if (!result.ok) announce(result.error.message);
   else { announce(`${method === 'deleteSelected' ? 'Branch deleted' : method === 'addChild' ? 'Child added' : method === 'undo' ? 'Undone' : 'Redone'}. Autosaved in this browser.`); markChanged(); update(); reveal(); }
   return result;
 }
 $('editor').onsubmit = (event) => {
-  event.preventDefault(); const result = editor.commitEdit($('label-input').value);
+  event.preventDefault(); const result = diag.time('edit commit', () => editor.commitEdit($('label-input').value));
   if (!result.ok) { $('edit-error').textContent = result.error.message; $('label-input').setAttribute('aria-invalid', 'true'); $('label-input').focus(); return; }
   finishEdit(); reveal(); markChanged(); announce('Label updated. Autosaved in this browser.');
 };
@@ -140,7 +152,7 @@ function deleteBranch() {
 }
 $('delete').onclick = deleteBranch;
 $('undo').onclick = () => action('undo'); $('redo').onclick = () => action('redo');
-$('layout').onchange = () => { editor.setLayout($('layout').value); view = fitView(editor.layout.bounds, size.width, size.height); update(); announce('Layout changed.'); };
+$('layout').onchange = () => { diag.time('layout switch', () => editor.setLayout($('layout').value)); view = fitView(editor.layout.bounds, size.width, size.height); update(); announce('Layout changed.'); };
 $('fit').onclick = () => { view = fitView(editor.layout.bounds, size.width, size.height); invalidate(); };
 $('reset').onclick = () => { view = resetView(size.width, size.height); invalidate(); };
 for (const [id, factor] of [['zoom-in', 1.25], ['zoom-out', .8]]) $(id).onclick = () => { view = zoomAt(view, { x: size.width / 2, y: size.height / 2 }, factor); invalidate(); };

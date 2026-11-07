@@ -28,6 +28,7 @@ summary { cursor: pointer; font-weight: 650; min-height: 44px; }
 .paging { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 12px; font-size: 12px; }
 footer { padding: 8px 18px; font-size: 12px; color: var(--muted); }
 footer p { margin: 4px 0; }
+.diagnostics { margin: 4px 0; } .diagnostics summary { cursor: pointer; } .diagnostics button { margin: 6px 8px 2px 0; }
 #app-status { color: var(--ink); }
 #editor { position: absolute; padding: 10px; background: var(--surface); border: 2px solid var(--accent); border-radius: 6px; z-index: 1; max-height: 100%; overflow: auto; }
 #editor[hidden] { display: none; }
