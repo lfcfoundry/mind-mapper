@@ -51,3 +51,4 @@ textarea[aria-invalid=true] { border-width: 2px; border-color: var(--error); }
 .file-menu summary::-webkit-details-marker { display: none; }
 .file-menu summary::after { content: '\25BE'; margin-left: 6px; }
 .file-menu-list { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; display: flex; flex-direction: column; gap: 4px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; min-width: 150px; }
+.file-menu summary:hover { background: var(--root-surface); text-decoration: underline; }
