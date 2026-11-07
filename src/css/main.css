@@ -45,3 +45,9 @@ textarea[aria-invalid=true] { border-width: 2px; border-color: var(--error); }
   #outline [aria-selected=true] { border-color: Highlight; }
   button:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, canvas:focus-visible { outline-color: Highlight; }
 }
+
+.file-menu { position: relative; }
+.file-menu summary { list-style: none; display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font-weight: 400; }
+.file-menu summary::-webkit-details-marker { display: none; }
+.file-menu summary::after { content: '\25BE'; margin-left: 6px; }
+.file-menu-list { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; display: flex; flex-direction: column; gap: 4px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; min-width: 150px; }

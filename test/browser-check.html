@@ -4,7 +4,7 @@ const report={userAgent:navigator.userAgent,dpr:devicePixelRatio,startedAt:new D
 const check=(ok,name)=>{report.checks.push({name,passed:!!ok});if(!ok)throw Error(name);};
 const wait=()=>new Promise(r=>setTimeout(r,100));
 try{for(const width of [360,1280]){
- const frame=document.createElement('iframe');frame.style.cssText=`width:${width}px;height:950px;border:0`;document.body.append(frame);
+ try{localStorage.clear();}catch(e){}const frame=document.createElement('iframe');frame.style.cssText=`width:${width}px;height:950px;border:0`;document.body.append(frame);
  await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error(`${width}: frame load timed out`)),8000);frame.onload=()=>{clearTimeout(timeout);resolve();};frame.src='/mind-mapper.html';});await wait();
  const d=frame.contentDocument,w=frame.contentWindow,$=id=>d.getElementById(id),canvas=$('map'),stage=$('stage').getBoundingClientRect();
  check(canvas.width>0&&canvas.height>0,`${width}: Canvas initialized`);

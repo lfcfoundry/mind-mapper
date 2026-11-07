@@ -48,6 +48,10 @@ function replaceMap(doc, message) {
   update(); announce(message);
 }
 const unsavedOk = () => !dirty || window.confirm('Your latest changes are autosaved in this browser but not saved to a file. Continue?');
+const fileMenu = $('file-menu');
+fileMenu.addEventListener('click', (event) => { if (event.target.closest('button')) fileMenu.open = false; });
+document.addEventListener('pointerdown', (event) => { if (fileMenu.open && !fileMenu.contains(event.target)) fileMenu.open = false; });
+fileMenu.addEventListener('keydown', (event) => { if (event.key === 'Escape' && fileMenu.open) { fileMenu.open = false; fileMenu.querySelector('summary').focus(); } });
 $('new').onclick = () => { if (unsavedOk()) replaceMap(blank(), 'New map started.'); };
 $('open').onclick = () => { if (!editor.editing && unsavedOk()) $('file').click(); };
 $('file').onchange = async () => {
