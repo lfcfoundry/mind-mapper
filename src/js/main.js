@@ -20,7 +20,7 @@ let sequence = 0, usedIds = new Set(), editor, dirty = false, saveTimer = null;
 function nextId() { let id; do id = `node-${++sequence}`; while (usedIds.has(id)); usedIds.add(id); return id; }
 function makeEditor(doc) {
   usedIds = new Set(doc.document.nodes.map((n) => n.id).concat(doc.document.relationships.map((r) => r.id)));
-  return createEditor(doc, (label) => measureContext.measureText(label).width, nextId);
+  return createEditor(doc, (label) => measureContext.measureText(label).width, nextId, { trustCandidate: true });
 }
 const restored = readAutosave(localStorage);
 editor = makeEditor(restored?.ok ? restored.document : blank());
