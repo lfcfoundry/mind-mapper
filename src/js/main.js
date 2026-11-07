@@ -1,6 +1,7 @@
 import { createDocument } from './model/create.js';
 import { createEditor, hierarchy, outlinePage } from './browser/controller.js';
 import { FONT } from './browser/measurement.js';
+import { fileNameFor, loadFromText, toFileText, readAutosave, writeAutosave, MAX_FILE_BYTES } from './browser/files.js';
 import { renderMap } from './browser/renderer.js';
 import { worldToViewport, screenToViewport, zoomAt, pan, fitView, resetView, canvasSize, hitTest } from './browser/viewport.js';
 
@@ -9,12 +10,45 @@ const canvas = $('map'), stage = $('stage'), context = canvas.getContext('2d');
 if (!context) throw new Error('Canvas 2D is required.');
 const measureContext = document.createElement('canvas').getContext('2d');
 measureContext.font = FONT;
-const initial = createDocument({ id: 'session-map', rootId: 'root', rootLabel: 'My mind map' });
-let sequence = 0;
-const editor = createEditor(initial, (label) => measureContext.measureText(label).width, () => `node-${++sequence}`);
+const blank = () => createDocument({ id: 'session-map', rootId: 'root', rootLabel: 'My mind map' });
+let sequence = 0, usedIds = new Set(), editor, dirty = false, saveTimer = null;
+function nextId() { let id; do id = `node-${++sequence}`; while (usedIds.has(id)); usedIds.add(id); return id; }
+function makeEditor(doc) {
+  usedIds = new Set(doc.document.nodes.map((n) => n.id).concat(doc.document.relationships.map((r) => r.id)));
+  return createEditor(doc, (label) => measureContext.measureText(label).width, nextId);
+}
+const restored = readAutosave(localStorage);
+editor = makeEditor(restored?.ok ? restored.document : blank());
 let view = resetView(1, 1), size, frame = null, page = 0;
 const pageSize = 80;
 function announce(message) { $('app-status').textContent = message; }
+const { createObjectURL: makeBlobHref, revokeObjectURL: dropBlobHref } = URL; // aliased so no css-style call text appears in the build
+function markChanged() {
+  dirty = true; $('save-note').textContent = 'Unsaved file changes · autosaved in this browser';
+  clearTimeout(saveTimer); saveTimer = setTimeout(() => writeAutosave(localStorage, editor.document), 400);
+}
+function replaceMap(doc, message) {
+  if (editor.editing) { announce('Save or cancel the current label edit first.'); return; }
+  editor = makeEditor(doc); page = 0; dirty = false; clearTimeout(saveTimer); writeAutosave(localStorage, doc);
+  $('save-note').textContent = 'Autosaved in this browser'; view = fitView(editor.layout.bounds, size.width, size.height);
+  update(); announce(message);
+}
+const unsavedOk = () => !dirty || window.confirm('Your latest changes are autosaved in this browser but not saved to a file. Continue?');
+$('new').onclick = () => { if (unsavedOk()) replaceMap(blank(), 'New map started.'); };
+$('open').onclick = () => { if (!editor.editing && unsavedOk()) $('file').click(); };
+$('file').onchange = async () => {
+  const file = $('file').files[0]; $('file').value = ''; if (!file) return;
+  if (file.size > MAX_FILE_BYTES) { announce('That file is too large (5 MB limit).'); return; }
+  const loaded = loadFromText(await file.text());
+  if (!loaded.ok) { announce(loaded.message); return; }
+  replaceMap(loaded.document, `Opened ${file.name}.`);
+};
+$('save').onclick = () => {
+  const out = toFileText(editor.document); if (!out.ok) { announce(out.message); return; }
+  const name = fileNameFor(editor.document.document.title), blobHref = makeBlobHref(new Blob([out.text], { type: 'application/json' }));
+  const link = Object.assign(document.createElement('a'), { href: blobHref, download: name }); document.body.append(link); link.click(); link.remove();
+  setTimeout(() => dropBlobHref(blobHref), 4000); dirty = false; $('save-note').textContent = 'Saved as ' + name; announce(`Saved ${name}.`);
+};
 function positionEditor() {
   if (!editor.editing) return;
   const node = editor.layout.nodesById[editor.editing.id];
@@ -85,13 +119,13 @@ function action(method) {
   if (editor.editing) { announce('Save or cancel the current label edit first.'); return; }
   const result = editor[method]();
   if (!result.ok) announce(result.error.message);
-  else { announce(`${method === 'deleteSelected' ? 'Branch deleted' : method === 'addChild' ? 'Child added' : method === 'undo' ? 'Undone' : 'Redone'}. Changes are only in this session.`); update(); reveal(); }
+  else { announce(`${method === 'deleteSelected' ? 'Branch deleted' : method === 'addChild' ? 'Child added' : method === 'undo' ? 'Undone' : 'Redone'}. Autosaved in this browser.`); markChanged(); update(); reveal(); }
   return result;
 }
 $('editor').onsubmit = (event) => {
   event.preventDefault(); const result = editor.commitEdit($('label-input').value);
   if (!result.ok) { $('edit-error').textContent = result.error.message; $('label-input').setAttribute('aria-invalid', 'true'); $('label-input').focus(); return; }
-  finishEdit(); reveal(); announce('Label updated. Changes are only in this session.');
+  finishEdit(); reveal(); markChanged(); announce('Label updated. Autosaved in this browser.');
 };
 $('cancel').onclick = cancelEdit;
 $('label-input').onkeydown = (event) => {
