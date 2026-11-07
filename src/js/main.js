@@ -81,8 +81,10 @@ function draw() {
   $('zoom-label').textContent = `${Math.round(view.scale * 100)}%`;
 }
 function invalidate() { if (frame === null) frame = requestAnimationFrame(draw); }
+let ordered_cache = null, orderedGeneration = -1, orderedEditor = null; // outline order only changes when the map does
 function refreshOutline(focusSelected = false, followSelection = false) {
-  const ordered = hierarchy(editor.document);
+  if (orderedGeneration !== editor.generation || orderedEditor !== editor) { ordered_cache = hierarchy(editor.document); orderedGeneration = editor.generation; orderedEditor = editor; }
+  const ordered = ordered_cache;
   page = outlinePage(ordered, editor.selectedId, page, pageSize, focusSelected || followSelection);
   const fragment = document.createDocumentFragment();
   const counts = new Map();
