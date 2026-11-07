@@ -123,7 +123,7 @@ function reveal() {
   if (point.x < 24 || point.x > size.width - 24 || point.y < 24 || point.y > size.height - 24) view = pan(view, size.width / 2 - point.x, size.height / 2 - point.y);
   invalidate();
 }
-function finishEdit() { $('editor').hidden = true; $('edit-error').textContent = ''; $('label-input').removeAttribute('aria-invalid'); canvas.focus(); update(); }
+function finishEdit() { $('editor').hidden = true; $('edit-error').textContent = ''; $('label-input').removeAttribute('aria-invalid'); canvas.focus({ preventScroll: true }); update(); }
 function cancelEdit() { editor.cancelEdit(); finishEdit(); }
 function beginEdit() {
   if (editor.editing) return;
@@ -180,7 +180,7 @@ function local(event) { return screenToViewport({ x: event.clientX, y: event.cli
 function pair() { const points = Array.from(pointers.values()); return { center: { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2 }, distance: Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y) }; }
 canvas.onpointerdown = (event) => {
   if (editor.editing || (event.pointerType === 'mouse' && event.button !== 0)) return;
-  canvas.focus(); canvas.setPointerCapture(event.pointerId); pointers.set(event.pointerId, local(event));
+  canvas.focus({ preventScroll: true }); canvas.setPointerCapture(event.pointerId); pointers.set(event.pointerId, local(event));
   if (pointers.size === 1) gesture = { start: local(event), base: { ...view }, moved: false, pinch: false };
   if (pointers.size === 2) { const info = pair(); gesture = { ...gesture, pinch: true, base: { ...view }, ...info }; }
 };
