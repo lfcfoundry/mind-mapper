@@ -1,5 +1,5 @@
 import { createCommandHistory } from '../commands/history.js';
-import { layoutValidatedDocument } from '../layout/layout.js';
+import { layoutValidatedDocument, prepareLayoutTree } from '../layout/layout.js';
 import { measureLabel } from './measurement.js';
 export function hierarchy(document) {
   const children = new Map(document.document.nodes.map((node) => [node.id, []]));
@@ -24,24 +24,26 @@ export function createEditor(document, measure, idFactory, historyOptions = {}) 
   let current = history.getDocument(), selectedId = current.document.rootId, editing = null, mode = 'left-to-right';
   let layout, generation = 0;
   const measurements = new Map();
-  function relayout() {
-    const dimensions = Object.create(null), ids = new Set();
+  let treeCache = null; // tree shape is reused for renames and layout switches; any structural change drops it
+  function relayout(structural = true) {
+    if (structural || !treeCache) treeCache = prepareLayoutTree(current);
+    const sizes = new Map(), ids = new Set();
     for (const node of current.document.nodes) {
       ids.add(node.id);
       if (measurements.get(node.id)?.label !== node.label) measurements.set(node.id, { label: node.label, ...measureLabel(node.label, measure) });
-      const size = measurements.get(node.id); dimensions[node.id] = { width: size.width, height: size.height };
+      sizes.set(node.id, measurements.get(node.id));
     }
     for (const id of measurements.keys()) if (!ids.has(id)) measurements.delete(id);
-    const result = layoutValidatedDocument(current, mode === 'radial' ? { type: 'radial', dimensions }
-      : { type: 'tree', direction: mode, dimensions });
+    const result = layoutValidatedDocument(current, mode === 'radial' ? { type: 'radial', trustedSizes: sizes, preparedTree: treeCache }
+      : { type: 'tree', direction: mode, trustedSizes: sizes, preparedTree: treeCache });
     if (!result.ok) throw new Error(result.errors.map((e) => e.message).join(' '));
     layout = result.layout; generation += 1;
   }
-  function accept(result) {
+  function accept(result, structural = true) {
     if (result.ok && result.changed) {
       current = result.document;
       if (!current.document.nodes.some((n) => n.id === selectedId)) selectedId = current.document.rootId;
-      relayout();
+      relayout(structural);
     }
     return result;
   }
@@ -55,7 +57,7 @@ export function createEditor(document, measure, idFactory, historyOptions = {}) 
     select(id) { selectedId = current.document.nodes.some((n) => n.id === id) ? id : null; },
     setLayout(value) {
       if (!['left-to-right', 'right-to-left', 'top-to-bottom', 'bottom-to-top', 'radial'].includes(value)) return false;
-      mode = value; relayout(); return true;
+      mode = value; relayout(false); return true;
     },
     beginEdit() {
       const node = current.document.nodes.find((n) => n.id === selectedId);
@@ -64,7 +66,7 @@ export function createEditor(document, measure, idFactory, historyOptions = {}) 
     },
     commitEdit(label) {
       if (!editing) return { ok: false, error: { message: 'No label is being edited.' } };
-      const result = accept(history.execute({ type: 'node.rename', nodeId: editing.id, label }));
+      const result = accept(history.execute({ type: 'node.rename', nodeId: editing.id, label }), false);
       if (result.ok) editing = null;
       return result;
     },
