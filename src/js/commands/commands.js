@@ -120,9 +120,22 @@ function firstValidationFailure(candidate) {
   return failure(first.code, first.message, { ...details, validationErrors: validation.errors });
 }
 
-let trustCandidates = false; // set only for the duration of one synchronous history command
+// Trusted fast path for history edits that cannot break whole-map rules except through the label they carry.
+// Set only for the duration of one synchronous command; any doubt falls back to the full check (same failure result).
+const TRUSTED_TYPES = new Set(["node.rename", "node.addChild", "node.deleteSubtree", "internal.restoreSubtree"]);
+let trust = null;
+function labelLooksValid({ label, needsLabel }) {
+  if (!needsLabel) return true;
+  if (typeof label !== "string" || label.trim().length === 0) return false;
+  const max = LIMITS.nodeLabelCodePoints;
+  if (label.length <= max) return true; // code points never exceed UTF-16 length
+  let count = 0;
+  for (const _c of label) if (++count > max) return false;
+  return true;
+}
+const needsLabelCheck = (type) => type === "node.rename" || type === "node.addChild";
 function succeed(candidate, undoAction, redoAction, changed = true) {
-  const invalid = trustCandidates ? null : firstValidationFailure(candidate);
+  const invalid = trust && labelLooksValid(trust) ? null : firstValidationFailure(candidate);
   if (invalid) return invalid;
   return { ok: true, document: candidate, changed, undoAction, redoAction };
 }
@@ -498,13 +511,13 @@ export function applyCommand(document, command, options = {}) {
 // History uses the prepared inverse/forward actions but keeps those details out of the public result.
 // The history owns `document` and validated it when it was created or last changed, so it is not re-validated per edit.
 export function executeCommandForHistory(document, command, options = {}) {
-  trustCandidates = options.trustCandidate === true;
-  try { return executePublicCommand(document, command, options, true); } finally { trustCandidates = false; }
+  trust = options.trustCandidate === true && TRUSTED_TYPES.has(command?.type) ? { label: command.label, needsLabel: needsLabelCheck(command.type) } : null;
+  try { return executePublicCommand(document, command, options, true); } finally { trust = null; }
 }
 
 let trustHistoryActions = false;
 export function setTrustHistoryActions(value) { trustHistoryActions = value === true; }
 export function applyHistoryAction(document, action) {
-  trustCandidates = trustHistoryActions;
-  try { return applyInternalAction(document, action, true); } finally { trustCandidates = false; }
+  trust = trustHistoryActions && TRUSTED_TYPES.has(action?.type) ? { label: action.label, needsLabel: needsLabelCheck(action.type) } : null;
+  try { return applyInternalAction(document, action, true); } finally { trust = null; }
 }

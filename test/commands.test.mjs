@@ -416,3 +416,15 @@ test('trustCandidate history gives the same documents as the default checked his
     (h) => h.execute({ type: 'node.rename', nodeId: 'n1', label: 'AA' }), (h) => h.undo(), (h) => h.undo(), (h) => h.redo(), (h) => h.execute({ type: 'node.deleteSubtree', nodeId: 'n1' })];
   for (const step of steps) { assert.deepEqual(step(b), step(a)); assert.deepEqual(b.getDocument(), a.getDocument()); }
 });
+
+test('trustCandidate history still rejects bad labels with the same failure as the checked history', async () => {
+  const { createDocument } = await import('../src/js/model/create.js');
+  const { createCommandHistory } = await import('../src/js/commands/history.js');
+  const make = (trust) => { let n = 0; return createCommandHistory(createDocument({ id: 'd', rootId: 'root', rootLabel: 'R' }), { idFactory: () => 'n' + (++n), trustCandidate: trust }); };
+  for (const label of [' ', '', 'x'.repeat(20001), 5, undefined]) {
+    const a = make(false), b = make(true);
+    assert.deepEqual(b.execute({ type: 'node.rename', nodeId: 'root', label }), a.execute({ type: 'node.rename', nodeId: 'root', label }));
+    assert.deepEqual(b.execute({ type: 'node.addChild', parentId: 'root', label }), a.execute({ type: 'node.addChild', parentId: 'root', label }));
+    assert.equal(b.getDocument().document.nodes.length, 1);
+  }
+});
