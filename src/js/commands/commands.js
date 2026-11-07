@@ -173,8 +173,8 @@ function collectSubtree(document, rootId) {
   return result;
 }
 
-function executePublicCommand(document, command, options = {}) {
-  const inputFailure = validateInputDocument(document);
+function executePublicCommand(document, command, options = {}, trustedInput = false) {
+  const inputFailure = trustedInput ? null : validateInputDocument(document);
   if (inputFailure) return inputFailure;
   const commandFailure = validateCommand(command);
   if (commandFailure) return commandFailure;
@@ -429,8 +429,8 @@ function executePublicCommand(document, command, options = {}) {
   }
 }
 
-function applyInternalAction(document, action) {
-  const invalidInput = validateInputDocument(document);
+function applyInternalAction(document, action, trustedInput = false) {
+  const invalidInput = trustedInput ? null : validateInputDocument(document);
   if (invalidInput) return invalidInput;
   const candidate = cloneDocument(document);
 
@@ -484,7 +484,7 @@ function applyInternalAction(document, action) {
     return succeed(candidate, null, null);
   }
 
-  return executePublicCommand(document, action);
+  return executePublicCommand(document, action, {}, trustedInput);
 }
 
 /** Execute one immutable document command. ID generation is opt-in via options.idFactory(kind). */
@@ -495,10 +495,11 @@ export function applyCommand(document, command, options = {}) {
 }
 
 // History uses the prepared inverse/forward actions but keeps those details out of the public result.
+// The history owns `document` and validated it when it was created or last changed, so it is not re-validated per edit.
 export function executeCommandForHistory(document, command, options = {}) {
-  return executePublicCommand(document, command, options);
+  return executePublicCommand(document, command, options, true);
 }
 
 export function applyHistoryAction(document, action) {
-  return applyInternalAction(document, action);
+  return applyInternalAction(document, action, true);
 }

@@ -1,5 +1,5 @@
 import { createCommandHistory } from '../commands/history.js';
-import { layoutDocument } from '../layout/layout.js';
+import { layoutValidatedDocument } from '../layout/layout.js';
 import { measureLabel } from './measurement.js';
 export function hierarchy(document) {
   const children = new Map(document.document.nodes.map((node) => [node.id, []]));
@@ -32,7 +32,7 @@ export function createEditor(document, measure, idFactory) {
       const size = measurements.get(node.id); dimensions[node.id] = { width: size.width, height: size.height };
     }
     for (const id of measurements.keys()) if (!ids.has(id)) measurements.delete(id);
-    const result = layoutDocument(current, mode === 'radial' ? { type: 'radial', dimensions }
+    const result = layoutValidatedDocument(current, mode === 'radial' ? { type: 'radial', dimensions }
       : { type: 'tree', direction: mode, dimensions });
     if (!result.ok) throw new Error(result.errors.map((e) => e.message).join(' '));
     layout = result.layout; generation += 1;
@@ -47,7 +47,7 @@ export function createEditor(document, measure, idFactory) {
   }
   relayout();
   return {
-    get document() { return history.getDocument(); }, get layout() { return layout; },
+    get document() { return history.getDocument(); }, get layout() { return layout; }, get rootId() { return current.document.rootId; },
     get selectedId() { return selectedId; }, get editing() { return editing && { ...editing }; },
     get mode() { return mode; }, get generation() { return generation; },
     get canUndo() { return history.canUndo; }, get canRedo() { return history.canRedo; },

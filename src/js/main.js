@@ -39,7 +39,7 @@ $('speed-report').onclick = () => { download(`mind-mapper-speed-${stamp()}.txt`,
 $('error-log').onclick = () => { download(`mind-mapper-errors-${stamp()}.txt`, diag.errorLog(diagContext())); announce(`Error log downloaded (${diag.errorCount} errors).`); };
 function markChanged() {
   dirty = true; $('save-note').textContent = 'Unsaved file changes · autosaved in this browser';
-  clearTimeout(saveTimer); saveTimer = setTimeout(() => writeAutosave(localStorage, editor.document), 400);
+  clearTimeout(saveTimer); saveTimer = setTimeout(() => diag.time('autosave', () => writeAutosave(localStorage, editor.document)), 400);
 }
 function replaceMap(doc, message) {
   if (editor.editing) { announce('Save or cancel the current label edit first.'); return; }
@@ -114,7 +114,7 @@ function refreshOutline(focusSelected = false, followSelection = false) {
 function update(focusOutline = false) {
   $('undo').disabled = !editor.canUndo; $('redo').disabled = !editor.canRedo;
   $('add').disabled = !editor.selectedId; $('edit').disabled = !editor.selectedId;
-  $('delete').disabled = !editor.selectedId || editor.selectedId === editor.document.document.rootId;
+  $('delete').disabled = !editor.selectedId || editor.selectedId === editor.rootId;
   refreshOutline(focusOutline, true); invalidate();
 }
 function reveal() {
@@ -151,7 +151,7 @@ $('label-input').onkeydown = (event) => {
 $('add').onclick = () => { if (action('addChild')?.ok) beginEdit(); };
 $('edit').onclick = beginEdit;
 function deleteBranch() {
-  if (editor.editing || !editor.selectedId || editor.selectedId === editor.document.document.rootId) return;
+  if (editor.editing || !editor.selectedId || editor.selectedId === editor.rootId) return;
   if (window.confirm('Delete this topic and all its children? You can undo this change.')) action('deleteSelected');
 }
 $('delete').onclick = deleteBranch;

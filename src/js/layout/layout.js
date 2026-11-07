@@ -462,6 +462,11 @@ export function layoutDocument(document, configuration) {
   if (!validation.valid) {
     return failure([error("INVALID_DOCUMENT", "Layout input is not a valid v1 document.", { validationErrors: validation.errors })]);
   }
+  return layoutValidatedDocument(document, configuration);
+}
+
+/** Same as layoutDocument for a document the caller already validated (for example one the command history just accepted). */
+export function layoutValidatedDocument(document, configuration) {
   if (!isRecord(configuration)) {
     return failure([error("LAYOUT_CONFIG_INVALID", "Layout configuration must be an object.")]);
   }
