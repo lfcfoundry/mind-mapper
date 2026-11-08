@@ -1,8 +1,11 @@
 export const FONT = '16px system-ui, sans-serif';
 export const LINE_HEIGHT = 22;
+const FIT_SLACK = 8;
 export function measureLabel(label, measure, maxWidth = 220) {
   const lines = [];
   for (const paragraph of label.split('\n')) {
+    // Fast path: a paragraph that fits with room to spare cannot wrap, so skip the per-character measuring.
+    if (paragraph.length < 40 && measure(paragraph) <= maxWidth - FIT_SLACK) { lines.push(paragraph); continue; }
     let line = '';
     for (const character of paragraph) {
       if (line && measure(line + character) > maxWidth) {

@@ -255,3 +255,31 @@ test("lays out a deterministic 5,000-node generated document", () => {
   assert.equal(result.layout.structuralEdges.length, 4_999);
   assertFiniteLayout(result.layout);
 });
+
+test('trusted sizes give exactly the same layout as validated dimensions, in every mode', async () => {
+  const { layoutDocument, layoutValidatedDocument, prepareLayoutTree } = await import('../src/js/layout/layout.js');
+  const nodes = [{ id: 'r', parentId: null, order: 0, label: 'Root' }]; const kids = {};
+  for (let i = 1; i < 300; i++) { const p = nodes[(i * 7919) % nodes.length]; const o = (kids[p.id] = kids[p.id] ?? 0); kids[p.id] += 1; nodes.push({ id: 'n' + i, parentId: p.id, order: o, label: 'T' + i }); }
+  const doc = { format: 'lfcfoundry.mindmap', schemaVersion: 1, document: { id: 'd', title: 'D', rootId: 'r', nodes, relationships: [] } };
+  const dimensions = Object.create(null), sizes = new Map();
+  for (const n of nodes) { const size = { width: 100 + (n.id.length * 13) % 70, height: 50 + (n.id.length * 7) % 30 }; dimensions[n.id] = size; sizes.set(n.id, { ...size, label: n.label, lines: [n.label] }); }
+  const configs = [{ type: 'radial' }, ...['left-to-right', 'right-to-left', 'top-to-bottom', 'bottom-to-top'].map((direction) => ({ type: 'tree', direction }))];
+  for (const config of configs) {
+    const a = layoutDocument(doc, { ...config, dimensions }), b = layoutValidatedDocument(doc, { ...config, trustedSizes: sizes, preparedTree: prepareLayoutTree(doc) });
+    assert.ok(a.ok && b.ok); assert.deepEqual(b.layout, a.layout);
+  }
+  assert.equal(layoutDocument(doc, { type: 'radial', trustedSizes: sizes }).ok, false);
+  assert.equal(layoutDocument(doc, { type: 'radial', dimensions, preparedTree: prepareLayoutTree(doc) }).ok, false);
+});
+
+test('editor layouts after rename, add, undo and layout switches equal a fresh editor on the same map', async () => {
+  const { createEditor } = await import('../src/js/browser/controller.js');
+  const { createDocument } = await import('../src/js/model/create.js');
+  const measure = (t) => t.length * 9; let n = 0;
+  const e = createEditor(createDocument({ id: 'd', rootId: 'root', rootLabel: 'Root' }), measure, () => 'n' + (++n));
+  const same = (label) => { const f = createEditor(e.document, measure, () => 'x'); f.setLayout(e.mode); assert.deepEqual(e.layout.nodesById, f.layout.nodesById, label); };
+  for (let i = 0; i < 6; i++) { e.addChild(); e.beginEdit(); e.commitEdit('Topic number ' + i + ' with words'); same('rename ' + i); }
+  e.undo(); same('undo'); e.redo(); same('redo');
+  for (const m of ['radial', 'top-to-bottom', 'right-to-left', 'bottom-to-top', 'left-to-right']) { e.setLayout(m); same(m); }
+  e.select(e.document.document.nodes[1].id); e.beginEdit(); e.commitEdit('x'); same('rename after switch');
+});

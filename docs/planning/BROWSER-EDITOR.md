@@ -12,7 +12,7 @@ For a tester on another machine or an accessible Android device, use [START-HERE
 
 ## User operations
 
-Tap/click selects; empty-space tap clears selection. Double-click or the Edit label button opens an HTML textarea over the map. Save or Ctrl/Command+Enter commits, Escape or Cancel cancels; ordinary Enter adds a line. Blank/invalid labels remain open with an error. Add child uses the selected parent and starts editing the new child. Delete branch requires confirmation and is disabled for the root. Undo and redo use the existing history engine.
+Tap/click selects; empty-space tap clears selection. Double-click or the Edit label button opens an HTML textarea over the map. Save or Enter commits (Shift+Enter adds a line), Escape or Cancel cancels. Blank/invalid labels remain open with an error. Add child uses the selected parent and starts editing the new child. Delete branch requires confirmation and is disabled for the root. Undo and redo use the existing history engine.
 
 Dragging past an eight-CSS-pixel threshold pans even when starting over a node; node movement is absent. A tap selects only on release. A second pointer starts pinch navigation and suppresses tap selection until all pointers lift. Cancellation/lost capture ends pending taps. `touch-action: none` and wheel prevention apply only to the map surface. The surrounding document and outline retain normal scrolling.
 

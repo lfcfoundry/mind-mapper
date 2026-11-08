@@ -120,8 +120,22 @@ function firstValidationFailure(candidate) {
   return failure(first.code, first.message, { ...details, validationErrors: validation.errors });
 }
 
+// Trusted fast path for history edits that cannot break whole-map rules except through the label they carry.
+// Set only for the duration of one synchronous command; any doubt falls back to the full check (same failure result).
+const TRUSTED_TYPES = new Set(["node.rename", "node.addChild", "node.deleteSubtree", "internal.restoreSubtree"]);
+let trust = null;
+function labelLooksValid({ label, needsLabel }) {
+  if (!needsLabel) return true;
+  if (typeof label !== "string" || label.trim().length === 0) return false;
+  const max = LIMITS.nodeLabelCodePoints;
+  if (label.length <= max) return true; // code points never exceed UTF-16 length
+  let count = 0;
+  for (const _c of label) if (++count > max) return false;
+  return true;
+}
+const needsLabelCheck = (type) => type === "node.rename" || type === "node.addChild";
 function succeed(candidate, undoAction, redoAction, changed = true) {
-  const invalid = firstValidationFailure(candidate);
+  const invalid = trust && labelLooksValid(trust) ? null : firstValidationFailure(candidate);
   if (invalid) return invalid;
   return { ok: true, document: candidate, changed, undoAction, redoAction };
 }
@@ -173,8 +187,8 @@ function collectSubtree(document, rootId) {
   return result;
 }
 
-function executePublicCommand(document, command, options = {}) {
-  const inputFailure = validateInputDocument(document);
+function executePublicCommand(document, command, options = {}, trustedInput = false) {
+  const inputFailure = trustedInput ? null : validateInputDocument(document);
   if (inputFailure) return inputFailure;
   const commandFailure = validateCommand(command);
   if (commandFailure) return commandFailure;
@@ -429,8 +443,8 @@ function executePublicCommand(document, command, options = {}) {
   }
 }
 
-function applyInternalAction(document, action) {
-  const invalidInput = validateInputDocument(document);
+function applyInternalAction(document, action, trustedInput = false) {
+  const invalidInput = trustedInput ? null : validateInputDocument(document);
   if (invalidInput) return invalidInput;
   const candidate = cloneDocument(document);
 
@@ -484,7 +498,7 @@ function applyInternalAction(document, action) {
     return succeed(candidate, null, null);
   }
 
-  return executePublicCommand(document, action);
+  return executePublicCommand(document, action, {}, trustedInput);
 }
 
 /** Execute one immutable document command. ID generation is opt-in via options.idFactory(kind). */
@@ -495,10 +509,15 @@ export function applyCommand(document, command, options = {}) {
 }
 
 // History uses the prepared inverse/forward actions but keeps those details out of the public result.
+// The history owns `document` and validated it when it was created or last changed, so it is not re-validated per edit.
 export function executeCommandForHistory(document, command, options = {}) {
-  return executePublicCommand(document, command, options);
+  trust = options.trustCandidate === true && TRUSTED_TYPES.has(command?.type) ? { label: command.label, needsLabel: needsLabelCheck(command.type) } : null;
+  try { return executePublicCommand(document, command, options, true); } finally { trust = null; }
 }
 
+let trustHistoryActions = false;
+export function setTrustHistoryActions(value) { trustHistoryActions = value === true; }
 export function applyHistoryAction(document, action) {
-  return applyInternalAction(document, action);
+  trust = trustHistoryActions && TRUSTED_TYPES.has(action?.type) ? { label: action.label, needsLabel: needsLabelCheck(action.type) } : null;
+  try { return applyInternalAction(document, action, true); } finally { trust = null; }
 }

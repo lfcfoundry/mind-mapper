@@ -90,6 +90,10 @@ function prepareTree(document) {
   return { nodeById, childrenById, preorder, depthById, levels };
 }
 
+export function prepareLayoutTree(document) {
+  return prepareTree(document);
+}
+
 function validateDimensions(document, tree, dimensions) {
   if (!isRecord(dimensions)) {
     return { errors: [error("DIMENSIONS_INVALID", "Dimensions must be an object keyed by node ID.")] };
@@ -462,10 +466,20 @@ export function layoutDocument(document, configuration) {
   if (!validation.valid) {
     return failure([error("INVALID_DOCUMENT", "Layout input is not a valid v1 document.", { validationErrors: validation.errors })]);
   }
+  for (const field of ["trustedSizes", "preparedTree"]) {
+    if (isRecord(configuration) && hasOwn(configuration, field)) {
+      return failure([error("LAYOUT_CONFIG_FIELD_UNKNOWN", "Layout configuration field is not supported.", { field })]);
+    }
+  }
+  return layoutValidatedDocument(document, configuration);
+}
+
+/** Same as layoutDocument for a document the caller already validated (for example one the command history just accepted). */
+export function layoutValidatedDocument(document, configuration) {
   if (!isRecord(configuration)) {
     return failure([error("LAYOUT_CONFIG_INVALID", "Layout configuration must be an object.")]);
   }
-  const allowedConfig = ["type", "direction", "dimensions", "options"];
+  const allowedConfig = ["type", "direction", "dimensions", "options", "trustedSizes", "preparedTree"];
   const unknownConfig = Object.keys(configuration).filter((key) => !allowedConfig.includes(key)).sort(lexicalCompare);
   if (unknownConfig.length > 0) {
     return failure(unknownConfig.map((field) => error("LAYOUT_CONFIG_FIELD_UNKNOWN", "Layout configuration field is not supported.", { field })));
@@ -488,8 +502,11 @@ export function layoutDocument(document, configuration) {
   const optionResult = parseOptions(type, configuration.options === undefined ? {} : configuration.options);
   if (optionResult.errors.length > 0) return failure(optionResult.errors);
 
-  const tree = prepareTree(document);
-  const dimensionResult = validateDimensions(document, tree, configuration.dimensions);
+  // preparedTree (trusted callers only): the result of prepareLayoutTree for a document with the same structure.
+  const tree = configuration.preparedTree ?? prepareTree(document);
+  // trustedSizes (trusted callers only): a Map of node id -> { width, height } the caller measured itself.
+  const trusted = configuration.trustedSizes instanceof Map && configuration.trustedSizes.size === tree.nodeById.size;
+  const dimensionResult = trusted ? { sizes: configuration.trustedSizes, errors: [] } : validateDimensions(document, tree, configuration.dimensions);
   if (dimensionResult.errors.length > 0) return failure(dimensionResult.errors);
   if (type === "tree") {
     return directionalLayout(tree, dimensionResult.sizes, direction, optionResult.options);

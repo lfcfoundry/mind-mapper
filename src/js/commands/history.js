@@ -1,5 +1,5 @@
 import { validateDocument } from "../model/validate.js";
-import { applyHistoryAction, cloneDocument, executeCommandForHistory } from "./commands.js";
+import { setTrustHistoryActions, applyHistoryAction, cloneDocument, executeCommandForHistory } from "./commands.js";
 
 function historyFailure(code, message) {
   return { ok: false, error: { code, message } };
@@ -22,7 +22,7 @@ export function createCommandHistory(initialDocument, options = {}) {
   let document = cloneDocument(initialDocument);
   const undoStack = [];
   const redoStack = [];
-  const commandOptions = options.idFactory === undefined ? {} : { idFactory: options.idFactory };
+  const commandOptions = { ...(options.idFactory === undefined ? {} : { idFactory: options.idFactory }), ...(options.trustCandidate === true ? { trustCandidate: true } : {}) };
 
   return {
     get canUndo() {
@@ -47,6 +47,7 @@ export function createCommandHistory(initialDocument, options = {}) {
     undo() {
       if (undoStack.length === 0) return historyFailure("NOTHING_TO_UNDO", "There is no command to undo.");
       const entry = undoStack[undoStack.length - 1];
+      setTrustHistoryActions(options.trustCandidate === true);
       const result = applyHistoryAction(document, entry.undoAction);
       if (!result.ok) return result;
       document = result.document;
@@ -57,6 +58,7 @@ export function createCommandHistory(initialDocument, options = {}) {
     redo() {
       if (redoStack.length === 0) return historyFailure("NOTHING_TO_REDO", "There is no command to redo.");
       const entry = redoStack[redoStack.length - 1];
+      setTrustHistoryActions(options.trustCandidate === true);
       const result = applyHistoryAction(document, entry.redoAction);
       if (!result.ok) return result;
       document = result.document;
