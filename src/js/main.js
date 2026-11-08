@@ -18,9 +18,20 @@ try { new PerformanceObserver((list) => list.getEntries().forEach((x) => diag.ad
 const blank = () => createDocument({ id: 'session-map', rootId: 'root', rootLabel: 'My mind map' });
 let sequence = 0, usedIds = new Set(), editor, dirty = false, saveTimer = null;
 function nextId() { let id; do id = `node-${++sequence}`; while (usedIds.has(id)); usedIds.add(id); return id; }
+let widths = new Map();
+function measureCached(text) { let w = widths.get(text); if (w === undefined) { if (widths.size > 50000) widths = new Map(); w = measureContext.measureText(text).width; widths.set(text, w); } return w; }
+// Big files: measure labels in short steps (about 4 ms each) so the page stays responsive; the editor then finds every width ready.
+async function premeasure(doc) {
+  const nodes = doc.document.nodes; if (nodes.length < 400) return;
+  let start = performance.now();
+  for (const node of nodes) {
+    for (const paragraph of node.label.split('\n')) if (paragraph.length < 40) measureCached(paragraph);
+    if (performance.now() - start > 4) { await new Promise((r) => setTimeout(r)); start = performance.now(); }
+  }
+}
 function makeEditor(doc) {
   usedIds = new Set(doc.document.nodes.map((n) => n.id).concat(doc.document.relationships.map((r) => r.id)));
-  return createEditor(doc, (label) => measureContext.measureText(label).width, nextId, { trustCandidate: true });
+  return createEditor(doc, measureCached, nextId, { trustCandidate: true });
 }
 const restored = readAutosave(localStorage);
 editor = makeEditor(restored?.ok ? restored.document : blank());
@@ -59,6 +70,7 @@ $('file').onchange = async () => {
   if (file.size > MAX_FILE_BYTES) { announce('That file is too large (5 MB limit).'); return; }
   const loaded = loadFromText(await file.text());
   if (!loaded.ok) { announce(loaded.message); return; }
+  announce('Opening...'); await premeasure(loaded.document);
   replaceMap(loaded.document, `Opened ${file.name}.`);
 };
 $('save').onclick = () => {
