@@ -283,3 +283,13 @@ test('editor layouts after rename, add, undo and layout switches equal a fresh e
   for (const m of ['radial', 'top-to-bottom', 'right-to-left', 'bottom-to-top', 'left-to-right']) { e.setLayout(m); same(m); }
   e.select(e.document.document.nodes[1].id); e.beginEdit(); e.commitEdit('x'); same('rename after switch');
 });
+
+test("radial layout accepts wide maps on a full ring (rounding error regression)", () => {
+  const sizes = [123, 140, 500, ...Array.from({ length: 150 }, (_, i) => i + 2)];
+  for (const size of sizes) {
+    const document = generatedTree(size, "wide");
+    const layout = run(document, "radial");
+    assert.equal(Object.keys(layout.nodesById).length, size, `radial rejected ${size} nodes under one root`);
+    assertFiniteLayout(layout);
+  }
+});

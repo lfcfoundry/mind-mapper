@@ -416,12 +416,13 @@ function radialLayout(tree, dimensions, options) {
         const slot = index === group.childIds.length - 1
           ? group.sector.start + group.sector.span - cursor
           : proposed;
-        if (!finite(slot) || slot < baseSlot) {
+        if (!finite(slot) || slot < baseSlot - 1e-9 * Math.max(1, baseSlot)) {   // a full ring leaves the last slot a rounding error short of its minimum
           return failure([error("GEOMETRY_NOT_FINITE", "Radial sector allocation could not be represented.", { nodeId: id })]);
         }
-        angles.set(id, cursor + slot / 2);
-        sectorsById.set(id, { start: cursor, span: slot });
-        cursor += slot;
+        const used = Math.max(slot, baseSlot);
+        angles.set(id, cursor + used / 2);
+        sectorsById.set(id, { start: cursor, span: used });
+        cursor += used;
       }
     }
   }
