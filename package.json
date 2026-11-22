@@ -1,6 +1,6 @@
 {
   "name": "@lfcfoundry/mind-mapper",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Offline-first, single-file mind-mapping application",
   "license": "MIT",
